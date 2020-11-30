@@ -9,9 +9,14 @@ var remoteStream;
 var turnReady;
 
 var pcConfig = {
-  'iceServers': [{
-    'urls': 'stun:stun.l.google.com:19302'
-  }]
+  'iceServers': [
+    {urls:'stun:stun.l.google.com:19302'},
+    {
+      urls: 'turn:34.94.159.96:3478',
+      username: 'tourmato',
+      credential: '1314520'
+    }
+  ]
 };
 
 // Set up audio and video regardless of what devices are present.
