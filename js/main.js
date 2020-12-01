@@ -1,15 +1,16 @@
 'use strict';
 
 var isChannelReady = false;
-var isInitiator = false;
+var isInitiator = null;
 var isStarted = false;
 var localStream;
 var pc;
 var remoteStream;
 var turnReady;
+var numClients;
 
 var pcConfig = {
-  'iceServers': [
+  iceServers: [
     {urls:'stun:stun.l.google.com:19302'},
     {
       urls: 'turn:34.94.159.96:3478',
@@ -25,7 +26,9 @@ var sdpConstraints = {
   offerToReceiveVideo: true
 };
 
-/////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//////TODO(luke): when host leaves, final one client would become the host ///////////////
+/////////////////////////////////////////////////////////////////////////////////////////
 
 var room = 'foo';
 // Could prompt for room name:
@@ -35,7 +38,7 @@ var socket = io.connect();
 
 if (room !== '') {
   socket.emit('create or join', room);
-  console.log('Attempted to create or  join room', room);
+  console.log('Attempted to create or join room', room);
 }
 
 socket.on('created', function(room) {
@@ -61,6 +64,19 @@ socket.on('joined', function(room) {
 socket.on('log', function(array) {
   console.log.apply(console, array);
 });
+
+socket.on("update number of clients", function(data){
+  console.log(data);
+  if(data==1){
+    isInitiator = true;
+    numClients = data;
+  }else{
+    isInitiator = false;
+    numClients = data;
+  }
+  console.log("numClients " + numClients + " | checkInitiator: " + isInitiator);
+});
+
 
 ////////////////////////////////////////////////
 
@@ -146,6 +162,7 @@ function maybeStart() {
 window.onbeforeunload = function() {
   sendMessage('bye');
 };
+
 
 /////////////////////////////////////////////////////////
 
@@ -249,10 +266,9 @@ function hangup() {
   sendMessage('bye');
 }
 
-function handleRemoteHangup() {
+async function handleRemoteHangup() {
   console.log('Session terminated.');
   stop();
-  isInitiator = false;
 }
 
 function stop() {

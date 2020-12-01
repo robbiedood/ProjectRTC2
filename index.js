@@ -4,7 +4,6 @@ var os = require('os');
 var nodeStatic = require('node-static');
 var http = require('http');
 var socketIO = require('socket.io');
-
 var fileServer = new(nodeStatic.Server)();
 var app = http.createServer(function(req, res) {
   fileServer.serve(req, res);
@@ -37,7 +36,6 @@ io.sockets.on('connection', function(socket) {
       socket.join(room);
       log('Client ID ' + socket.id + ' created room ' + room);
       socket.emit('created', room, socket.id);
-
     } else if (numClients === 1) {
       log('Client ID ' + socket.id + ' joined room ' + room);
       io.sockets.in(room).emit('join', room);
@@ -47,6 +45,8 @@ io.sockets.on('connection', function(socket) {
     } else { // max two clients
       socket.emit('full', room);
     }
+    updateNumOfClients();
+
   });
 
   socket.on('ipaddr', function() {
@@ -59,5 +59,20 @@ io.sockets.on('connection', function(socket) {
       });
     }
   });
+
+  function leave() {
+    console.log('-- ' + socket.id + ' left --');
+    updateNumOfClients();
+  }
+
+  function updateNumOfClients(){
+    var numClients = Object.keys(io.sockets.sockets).length;
+    console.log(numClients + ' in the room')
+    socket.emit('update number of clients', numClients);
+  }
+
+  socket.on('request number of clients', updateNumOfClients);
+  socket.on('disconnect', leave);
+  socket.on('leave', leave);
 
 });
