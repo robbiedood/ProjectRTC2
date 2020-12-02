@@ -1,14 +1,13 @@
 'use strict';
 
 var isChannelReady = false;
-var isInitiator = null;
+var localId;
+var isInitiator = false;
 var isStarted = false;
 var localStream;
-var pc;
+var pc = null;
 var remoteStream;
-var turnReady;
-var numClients;
-
+var streamList;
 var pcConfig = {
   iceServers: [
     {urls:'stun:stun.l.google.com:19302'},
@@ -20,11 +19,10 @@ var pcConfig = {
   ]
 };
 
-// Set up audio and video regardless of what devices are present.
-var sdpConstraints = {
-  offerToReceiveAudio: true,
-  offerToReceiveVideo: true
-};
+var mediaConstraints = {
+  audio: false,
+  video: true
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //////TODO(luke): when host leaves, final one client would become the host ///////////////
@@ -41,18 +39,16 @@ if (room !== '') {
   console.log('Attempted to create or join room', room);
 }
 
+socket.on('id', function(id){localId = id});
+
 socket.on('created', function(room) {
   console.log('Created room ' + room);
-  isInitiator = true;
-});
-
-socket.on('full', function(room) {
-  console.log('Room ' + room + ' is full');
+  //setInitiator();
+  console.log('This peer is the initiator of room ' + room + '!');
 });
 
 socket.on('join', function (room){
   console.log('Another peer made a request to join room ' + room);
-  console.log('This peer is the initiator of room ' + room + '!');
   isChannelReady = true;
 });
 
@@ -61,22 +57,13 @@ socket.on('joined', function(room) {
   isChannelReady = true;
 });
 
+socket.on('full', function(room) {
+  console.log('Room ' + room + ' is full');
+});
+
 socket.on('log', function(array) {
   console.log.apply(console, array);
 });
-
-socket.on("update number of clients", function(data){
-  console.log(data);
-  if(data==1){
-    isInitiator = true;
-    numClients = data;
-  }else{
-    isInitiator = false;
-    numClients = data;
-  }
-  console.log("numClients " + numClients + " | checkInitiator: " + isInitiator);
-});
-
 
 ////////////////////////////////////////////////
 
@@ -87,12 +74,16 @@ function sendMessage(message) {
 
 // This client receives a message
 socket.on('message', function(message) {
+  //setInitiator();
+  checkHost();
   console.log('Client received message:', message);
-  if (message === 'got user media') {
+  if (message === 'got local media') {
     maybeStart();
   } else if (message.type === 'offer') {
+    // check if Guest and not started
     if (!isInitiator && !isStarted) {
       maybeStart();
+      console.log('i am in check if Guest and not started');
     }
     pc.setRemoteDescription(new RTCSessionDescription(message));
     doAnswer();
@@ -114,10 +105,7 @@ socket.on('message', function(message) {
 var localVideo = document.querySelector('#localVideo');
 var remoteVideo = document.querySelector('#remoteVideo');
 
-navigator.mediaDevices.getUserMedia({
-  audio: false,
-  video: true
-})
+navigator.mediaDevices.getUserMedia(mediaConstraints)
 .then(gotStream)
 .catch(function(e) {
   alert('getUserMedia() error: ' + e.name);
@@ -127,27 +115,21 @@ function gotStream(stream) {
   console.log('Adding local stream.');
   localStream = stream;
   localVideo.srcObject = stream;
-  sendMessage('got user media');
+  sendMessage('got local media');
+  checkHost();
   if (isInitiator) {
     maybeStart();
   }
 }
 
-var constraints = {
-  video: true
-};
-
-console.log('Getting user media with constraints', constraints);
-
 function maybeStart() {
-  console.log('>>>>>>> maybeStart() ', isStarted, localStream, isChannelReady);
-  if (!isStarted && typeof localStream !== 'undefined' && isChannelReady) {
-    console.log('>>>>>> creating peer connection');
+  console.log('>>> maybeStart(): (isStarted, isChannelReady, localStream) ', isStarted, isChannelReady, localStream);
+  if (!isStarted && isChannelReady && typeof localStream !== 'undefined') {
+    console.log('>>>> creating peer connection');
     createPeerConnection();
     pc.addStream(localStream);
     isStarted = true;
-    console.log('isInitiator', isInitiator);
-    if (isInitiator) {
+    if (isInitiator) { //host would call guest
       doCall();
     }
   }
@@ -175,7 +157,7 @@ function createPeerConnection() {
 }
 
 function handleIceCandidate(event) {
-  console.log('icecandidate event: ', event);
+  //console.log('icecandidate event: ', event);
   if (event.candidate) {
     sendMessage({
       type: 'candidate',
@@ -184,7 +166,7 @@ function handleIceCandidate(event) {
       candidate: event.candidate.candidate
     });
   } else {
-    console.log('End of candidates.');
+    console.log('Finish of chasing ice candidates.');
   }
 }
 
@@ -193,12 +175,12 @@ function handleCreateOfferError(event) {
 }
 
 function doCall() {
-  console.log('Sending offer to peer');
+  console.log('Sending offer to guest');
   pc.createOffer(setLocalAndSendMessage, handleCreateOfferError);
 }
 
 function doAnswer() {
-  console.log('Sending answer to peer.');
+  console.log('Sending answer to host.');
   pc.createAnswer().then(
     setLocalAndSendMessage,
     onCreateSessionDescriptionError
@@ -207,7 +189,6 @@ function doAnswer() {
 
 function setLocalAndSendMessage(sessionDescription) {
   pc.setLocalDescription(sessionDescription);
-  console.log('setLocalAndSendMessage sending message', sessionDescription);
   sendMessage(sessionDescription);
 }
 
@@ -226,13 +207,8 @@ function handleRemoteStreamRemoved(event) {
   console.log('Remote stream removed. Event: ', event);
 }
 
-function hangup() {
-  console.log('Hanging up.');
-  stop();
-  sendMessage('bye');
-}
 
-async function handleRemoteHangup() {
+function handleRemoteHangup() {
   console.log('Session terminated.');
   stop();
 }
@@ -241,4 +217,13 @@ function stop() {
   isStarted = false;
   pc.close();
   pc = null;
+}
+
+
+function checkHost(){
+  $.get('/streams.json', function(data, status){
+    let role = (data.find(el => el.id === localId)).name;
+    isInitiator = (role == 'Host') ? true : false;
+    console.log('role: ' + role + '; isInitiator: ' + isInitiator)
+  });
 }

@@ -3,11 +3,6 @@ module.exports = function(io, streams) {
       io.on('connection', function(socket) {
 
             socket.emit('id', socket.id);
-
-            socket.on('readyToStream', function(options) {
-                  console.log('-- ' + socket.id + ' is ready to stream --');
-                  streams.addStream(socket.id, options.name);
-            });
                 
             socket.on('update', function(options) {
                   streams.update(socket.id, options.name);
@@ -37,17 +32,18 @@ module.exports = function(io, streams) {
                 socket.join(room);
                 log('Client ID ' + socket.id + ' created room ' + room);
                 socket.emit('created', room, socket.id);
+                streams.addStream(socket.id, 'Host');
               } else if (numClients === 1) {
                 log('Client ID ' + socket.id + ' joined room ' + room);
                 io.sockets.in(room).emit('join', room);
                 socket.join(room);
                 socket.emit('joined', room, socket.id);
                 io.sockets.in(room).emit('ready');
+                streams.addStream(socket.id, 'Guest');
               } else { // max two clients
                 socket.emit('full', room);
+                streams.addStream(socket.id, 'Waitee');
               }
-              updateNumOfClients();
-          
             });
           
             socket.on('ipaddr', function() {
@@ -63,17 +59,9 @@ module.exports = function(io, streams) {
           
             function leave() {
               console.log('-- ' + socket.id + ' left --');
-              updateNumOfClients();
               streams.removeStream(socket.id);
             }
           
-            function updateNumOfClients(){
-              var numClients = io.sockets.sockets.size;
-              console.log(numClients + ' in the room')
-              socket.emit('update number of clients', numClients);
-            }
-          
-            socket.on('request number of clients', updateNumOfClients);
             socket.on('disconnect', leave);
             socket.on('leave', leave);
           
