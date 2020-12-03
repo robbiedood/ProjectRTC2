@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html ng-app="projectRTC2">
+  <head>
+    <title><%= title %></title>
+    <base href="/" />
+    <link rel='stylesheet' href='css/style.css' />
+	<!-- load js which requires for 'front-end' side, all put insode public, node_module folder or CDN -->
+	<script type="text/javascript" src="socket.io/socket.io.js"></script>
+	<script type="text/javascript" src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular.min.js"></script>
+	<script type="text/javascript" src="js/peerHandler.js"></script>
+	<script type="text/javascript" src="js/client.js"></script>
+  </head>
+  <body>
+  	<h1><%= header %></h1>
+
+  	<%- include('local-cam') %>
+
+  	<%- include('remote-streams') %>
+
+  	<p class="footer"><%= footer %></p>
+  </body>
+</html>

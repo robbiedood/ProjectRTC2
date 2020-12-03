@@ -1,229 +1,165 @@
-'use strict';
+(function(){
+	var app = angular.module('projectRTC2', [],
+		function($locationProvider){$locationProvider.html5Mode(true);}
+    	); // claim a agular app, corresponds to <html ng-app="projectRtc"> in index.ejs
+	var client = new PeerManager(); // PeerManager is a function defined in rtcClient.js
+	var mediaConfig = {
+        	audio: true,
+        	video: {
+				mandatory: {},
+				optional: []
+        		}
+    	}; // mediaConfig defines media type
 
-var isChannelReady = false;
-var localId;
-var isInitiator = false;
-var isStarted = false;
-var localStream;
-var pc = null;
-var remoteStream;
-var streamList;
-var pcConfig = {
-  iceServers: [
-    {urls:'stun:stun.l.google.com:19302'},
-    {
-      urls: 'turn:34.94.159.96:3478',
-      username: 'tourmato',
-      credential: '1314520'
-    }
-  ]
-};
+    // create an angular service using factory
+    	app.factory('camera', ['$rootScope', '$window', function($rootScope, $window){
 
-var mediaConstraints = {
-  audio: false,
-  video: true
-}
+		var camera = {};
+		
+		camera.preview = $window.document.getElementById('localVideo'); // set privew to localVideo div
+    		camera.isOn = null;
+		
+		camera.start = function(){
+            	return navigator.mediaDevices.getUserMedia(mediaConfig)
+            .then(gotStream)
+            .catch(function(e) {
+              alert('getUserMedia() error: ' + e.name);});
+          	};
+      
+		function gotStream(stream){	
+			camera.preview.srcObject = stream; //attach Media to camera.preview, which cooresponds to localVideo div
+			client.setLocalStream(stream);  // setLocalStream for PeerManager
+			camera.stream = stream;		// keep stream in camera.stream
+			camera.isOn = true;
+			$rootScope.$broadcast('cameraIsOn',true);  //broacast the success of getting Media from local
+		}
 
-//////////////////////////////////////////////////////////////////////////////////////////
-//////TODO(luke): when host leaves, final one client would become the host ///////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+		camera.stop = function(){
+			return new Promise(function(resolve, reject){			
+					try {
+						//camera.stream.stop() no longer works for Chrome 45+ version (after 2015)
+						camera.stream.getTracks().forEach(function(track){track.stop()});
+						camera.preview.src = ''; // clean localVideo src
+						resolve();
+					} catch(error) {
+						reject(error);
+					}
+			})
+			.then(function(result){
+				$rootScope.$broadcast('cameraIsOn',false); //broacast the stop of getting Media from local
+				camera.isOn = false;
+			});	
+			};
+		return camera;
+	}]);
 
-var room = 'foo';
-// Could prompt for room name:
-// room = prompt('Enter room name:');
+	app.controller('RemoteStreamsController', ['camera', '$location', '$http', function(camera, $location, $http){
+		var rtc = this;
+		rtc.remoteStreams = [];
+		function getStreamById(id) {
+		    for(var i=0; i<rtc.remoteStreams.length;i++) {
+		    	if (rtc.remoteStreams[i].id === id) {return rtc.remoteStreams[i];}
+		    }
+		}
+		rtc.loadData = function () {
+			// For angular 1.6.0+; get list of streams from the server
+			$http.get('/streams.json').then(function(res){
+				// filter own (local) stream, only keep remote stream
+				var streams = res.data.filter(function(stream) {
+			      	return stream.id != client.getId();
+			    	});
+			    // get former playing state
+			    for(var i=0; i<streams.length;i++) {
+			    	var stream = getStreamById(streams[i].id);
+			    	streams[i].isPlaying = (!!stream) ? stream.isPLaying : false;
+			    }
+			    // save new streams
+			    rtc.remoteStreams = streams;
+			}, function(error){
+				console.log('http get streams json error');
+			});
+		};
 
-var socket = io();
+		// rtc.view = function(stream){
+		// 	client.peerInit(stream.id);
+		// 	stream.isPlaying = !stream.isPlaying; //turn play to stop, stop to play (state swichting)
+		// };
 
-if (room !== '') {
-  socket.emit('create or join', room);
-  console.log('Attempted to create or join room', room);
-}
+		rtc.call = function(stream){
+			/* If json isn't loaded yet, construct a new stream 
+			 * This happens when you load <serverUrl>/<socketId> : 
+			 * it calls socketId immediatly.
+			**/
+			if(!stream.id){
+				stream = {id: stream, isPlaying: false};
+				rtc.remoteStreams.push(stream); // push the (new) stream into stream list
+			}
+			
+			if(camera.isOn){ 
+				client.toggleLocalStream(stream.id);
+				if(stream.isPlaying){
+					client.peerRenegociate(stream.id);
+				} else {
+					client.peerInit(stream.id);
+				}
+				stream.isPlaying = !stream.isPlaying;
+			} else {
+				camera.start()
+				.then(function(result) {
+					client.toggleLocalStream(stream.id);
+					if(stream.isPlaying){
+						client.peerRenegociate(stream.id);
+					} else {
+						client.peerInit(stream.id);
+					}
+					stream.isPlaying = !stream.isPlaying;
+				})
+				.catch(function(err) {
+					console.log(err);
+				});
+			}
+		};
 
-socket.on('id', function(id){localId = id});
+		//initial load
+		rtc.loadData();
+		if($location.url() != '/'){
+			rtc.call($location.url().slice(1));  //call remote host by remote host id
+		};
+	}]);
 
-socket.on('created', function(room) {
-  console.log('Created room ' + room);
-  //setInitiator();
-  console.log('This peer is the initiator of room ' + room + '!');
-});
+	app.controller('LocalStreamController',['camera', '$scope', '$window', function(camera, $scope, $window){
+		var localStream = this;
+		localStream.name = 'Guest';
+		localStream.link = '';
+		localStream.cameraIsOn = false;
 
-socket.on('join', function (room){
-  console.log('Another peer made a request to join room ' + room);
-  isChannelReady = true;
-});
+		$scope.$on('cameraIsOn', function(event,data) {
+			$scope.$apply(function() {
+				localStream.cameraIsOn = data;
+			});
+		});
 
-socket.on('joined', function(room) {
-  console.log('joined: ' + room);
-  isChannelReady = true;
-});
-
-socket.on('full', function(room) {
-  console.log('Room ' + room + ' is full');
-});
-
-socket.on('log', function(array) {
-  console.log.apply(console, array);
-});
-
-////////////////////////////////////////////////
-
-function sendMessage(message) {
-  console.log('Client sending message: ', message);
-  socket.emit('message', message);
-}
-
-// This client receives a message
-socket.on('message', function(message) {
-  //setInitiator();
-  checkHost();
-  console.log('Client received message:', message);
-  if (message === 'got local media') {
-    maybeStart();
-  } else if (message.type === 'offer') {
-    // check if Guest and not started
-    if (!isInitiator && !isStarted) {
-      maybeStart();
-      console.log('i am in check if Guest and not started');
-    }
-    pc.setRemoteDescription(new RTCSessionDescription(message));
-    doAnswer();
-  } else if (message.type === 'answer' && isStarted) {
-    pc.setRemoteDescription(new RTCSessionDescription(message));
-  } else if (message.type === 'candidate' && isStarted) {
-    var candidate = new RTCIceCandidate({
-      sdpMLineIndex: message.label,
-      candidate: message.candidate
-    });
-    pc.addIceCandidate(candidate);
-  } else if (message === 'bye' && isStarted) {
-    handleRemoteHangup();
-  }
-});
-
-////////////////////////////////////////////////////
-
-var localVideo = document.querySelector('#localVideo');
-var remoteVideo = document.querySelector('#remoteVideo');
-
-navigator.mediaDevices.getUserMedia(mediaConstraints)
-.then(gotStream)
-.catch(function(e) {
-  alert('getUserMedia() error: ' + e.name);
-});
-
-function gotStream(stream) {
-  console.log('Adding local stream.');
-  localStream = stream;
-  localVideo.srcObject = stream;
-  sendMessage('got local media');
-  checkHost();
-  if (isInitiator) {
-    maybeStart();
-  }
-}
-
-function maybeStart() {
-  console.log('>>> maybeStart(): (isStarted, isChannelReady, localStream) ', isStarted, isChannelReady, localStream);
-  if (!isStarted && isChannelReady && typeof localStream !== 'undefined') {
-    console.log('>>>> creating peer connection');
-    createPeerConnection();
-    pc.addStream(localStream);
-    isStarted = true;
-    if (isInitiator) { //host would call guest
-      doCall();
-    }
-  }
-}
-
-window.onbeforeunload = function() {
-  sendMessage('bye');
-};
-
-
-/////////////////////////////////////////////////////////
-
-function createPeerConnection() {
-  try {
-    pc = new RTCPeerConnection(pcConfig);
-    pc.onicecandidate = handleIceCandidate;
-    pc.ontrack = handleRemoteStreamAdded;
-    pc.onremovestream = handleRemoteStreamRemoved;
-    console.log('Created RTCPeerConnnection');
-  } catch (e) {
-    console.log('Failed to create PeerConnection, exception: ' + e.message);
-    alert('Cannot create RTCPeerConnection object.');
-    return;
-  }
-}
-
-function handleIceCandidate(event) {
-  //console.log('icecandidate event: ', event);
-  if (event.candidate) {
-    sendMessage({
-      type: 'candidate',
-      label: event.candidate.sdpMLineIndex,
-      id: event.candidate.sdpMid,
-      candidate: event.candidate.candidate
-    });
-  } else {
-    console.log('Finish of chasing ice candidates.');
-  }
-}
-
-function handleCreateOfferError(event) {
-  console.log('createOffer() error: ', event);
-}
-
-function doCall() {
-  console.log('Sending offer to guest');
-  pc.createOffer(setLocalAndSendMessage, handleCreateOfferError);
-}
-
-function doAnswer() {
-  console.log('Sending answer to host.');
-  pc.createAnswer().then(
-    setLocalAndSendMessage,
-    onCreateSessionDescriptionError
-  );
-}
-
-function setLocalAndSendMessage(sessionDescription) {
-  pc.setLocalDescription(sessionDescription);
-  sendMessage(sessionDescription);
-}
-
-function onCreateSessionDescriptionError(error) {
-  trace('Failed to create session description: ' + error.toString());
-}
-
-
-function handleRemoteStreamAdded(event) {
-  console.log('Remote stream added.');
-  remoteStream = event.streams[0];
-  remoteVideo.srcObject = remoteStream;
-}
-
-function handleRemoteStreamRemoved(event) {
-  console.log('Remote stream removed. Event: ', event);
-}
-
-
-function handleRemoteHangup() {
-  console.log('Session terminated.');
-  stop();
-}
-
-function stop() {
-  isStarted = false;
-  pc.close();
-  pc = null;
-}
-
-
-function checkHost(){
-  $.get('/streams.json', function(data, status){
-    let role = (data.find(el => el.id === localId)).name;
-    isInitiator = (role == 'Host') ? true : false;
-    console.log('role: ' + role + '; isInitiator: ' + isInitiator)
-  });
-}
+		localStream.toggleCam = function(){
+			if(localStream.cameraIsOn){
+				camera.stop()
+				.then(function(result){
+					client.send('leave');
+	    				client.setLocalStream(null);
+				})
+				.catch(function(err) {
+					console.log(err);
+				});
+			} else {
+				camera.start()
+				.then(function(result) {
+					client.send('readyToStream', { name: localStream.name });
+				})
+				.catch(function(err) {
+					console.log(err);
+				});
+				localStream.link = 'http://' + $window.location.host + '/' + client.getId(); // putting the line into .then would have bug, why ?
+				console.log(localStream.link); //this is for deug android using desktop
+			}
+		};
+	}]);
+})(); // the ending () would call the function itself
