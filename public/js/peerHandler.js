@@ -1,23 +1,6 @@
 var PeerManager = (function () {
 
   var localId,
-      config = {
-        peerConnectionConfig: {
-          iceServers: [
-            {urls:'stun:stun.l.google.com:19302'},
-            {
-              urls: 'turn:34.94.159.96:3478',
-              username: 'tourmato',
-              credential: '1314520'
-            }
-          ]
-        },
-        peerConnectionConstraints: {
-          optional: [
-            {"DtlsSrtpKeyAgreement": true}
-          ]
-        }
-      },
       pcConfig = {
         iceServers: [
           {urls:'stun:stun.l.google.com:19302'},
