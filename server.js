@@ -26,23 +26,3 @@ var streams = require('./server/streamList.js')();
 
 require('./server/routes.js')(app, streams); // routing
 require('./server/socketHandler.js')(io, streams); // socket.io module
-
-////////// Route ///////////////
-
-// // GET Home
-// var index = function(req, res) {
-//   res.sendFile(path.join(__dirname + '/index.html'));
-// };
-
-// // GET streams as JSON
-// var displayStreams = function(req, res) {
-//   var streamList = streams.getStreams();
-//   // JSON exploit to clone streamList.public
-//   var data = (JSON.parse(JSON.stringify(streamList))); 
-//   res.status(200).json(data);
-// };
-
-// // routing setup
-// app.get('/streams.json', displayStreams);
-// app.get('/', index);
-// app.get('/:id', index);
