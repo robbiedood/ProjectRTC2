@@ -5,8 +5,9 @@ module.exports = function(io, streams) {
     client.emit('id', client.id);
 
     client.on('message', function (details) {
-      // only emit message to 'other side' (do no self-offer or self-answer)
-      var otherClient = io.sockets.sockets.get(details.to);
+      // below is to emit message only to 'other side' (do no self-offer or self-answer)
+      var otherClient = io.sockets.sockets[details.to];  // socket.io 2.x version
+      // var otherClient = io.sockets.sockets.get(details.to);  // socket.io 3.x version
       if (!otherClient) {
         return;
       }
