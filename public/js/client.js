@@ -133,7 +133,7 @@
 		localStream.link = '';
 		localStream.cameraIsOn = false;
 
-		$scope.$on('cameraIsOn', function(event,data) {
+		$scope.$on('cameraIsOn', function(event, data) {
 			$scope.$apply(function() {
 				localStream.cameraIsOn = data;
 			});
@@ -162,4 +162,4 @@
 			}
 		};
 	}]);
-})(); // the ending () would call the function itself
+})(); // the ending () = call the function by itself
