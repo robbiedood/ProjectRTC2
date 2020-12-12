@@ -22,6 +22,14 @@ var server = app.listen(app.get('port'), function(){
 });
 
 var io = require('socket.io')(server);
+
+// generate a custom id using secure method (crypto module) for better user experience
+io.engine.generateId = function (req) {
+  var crypto = require("crypto");
+  var customId = crypto.randomBytes(20).toString('hex').substr(2, 4);
+  return customId
+}
+
 var streams = require('./server/streamList.js')();
 
 require('./server/routes.js')(app, streams); // routing
