@@ -12,21 +12,27 @@
 	<script type="text/javascript" src="js/client.js"></script>
   </head>
   <body>
-	<!-- go to full screen button -->
-	<button id="goFS">Go Fullscreen</button>
-	<script>
-		var goToFullScreen = document.getElementById("goFS");
-		goToFullScreen.addEventListener("click", function() {
-			const elem = document.documentElement;
-			if (elem.requestFullscreen) {elem.requestFullscreen()}
-		}, false);
-	</script>
   	<h1><%= header %></h1>
 
   	<%- include('local-cam') %>
 
   	<%- include('remote-streams') %>
 
-  	<p class="footer"><%= footer %></p>
+	  <p class="footer"><%= footer %></p>
+	<!-- go to full screen button -->
+	<button id="goFS">fullscreener</button>
+	<script>
+		var goToFullScreen = document.getElementById("goFS");
+		var isFullScreen=false;
+		goToFullScreen.addEventListener("click", function() {
+			const elem = document.documentElement;
+			isFullScreen = !isFullScreen;
+			if (elem.requestFullscreen && isFullScreen) {
+				elem.requestFullscreen();
+			}else{
+				document.exitFullscreen();
+			}
+		}, false);
+	</script>
   </body>
 </html>
