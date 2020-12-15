@@ -5,10 +5,7 @@
 	var client = new PeerManager(); // PeerManager is a function defined in rtcClient.js
 	var mediaConfig = {
         	audio: true,
-        	video: {
-				mandatory: {},
-				optional: []
-        		}
+        	video: false
     	}; // mediaConfig defines media type
 
     // create an angular service using factory
