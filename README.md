@@ -2,7 +2,7 @@
 
 The ProjectRTC 2: A Rennovation of [ProjectRTC](https://github.com/pchab/ProjectRTC.git)
 
-Incorporating [socket.io 3](socket.io), adapter-latest, upgrading ejs, socket.io and angularjs for a better security and streaming performance. Depreciation modules of WebRTC are also replaced with official suggestions.
+Incorporating [socket.io 2](socket.io), adapter-latest, upgrading ejs, socket.io and angularjs for a better security and streaming performance. Depreciation modules of WebRTC are also replaced with official suggestions.
 
 - Node.js server
 - Broswer (Chrome or Firefox) client
@@ -27,6 +27,9 @@ Incorporating [socket.io 3](socket.io), adapter-latest, upgrading ejs, socket.io
 The server will run on port 3000
 You can test it in the (Chrome or Firefox) browser at localhost:3000
 
-## Author
+## Connect with Tourmato Team
 
-- [Luke Tourmato](mailto:chienlu@alumni.princeton.edu)
+- [Luke Lu](https:/www.linkedin.com/in/lukelu520)
+- [Lynna Lin](https:/www.linkedin.com/lynnajinglin/)
+- [Sandy Lu](https:/www.linkedin.com/in/sandylu1108)
+

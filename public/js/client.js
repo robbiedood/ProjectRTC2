@@ -5,7 +5,10 @@
 	var client = new PeerManager(); // PeerManager is a function defined in rtcClient.js
 	var mediaConfig = {
         	audio: true,
-        	video: false // do not ask js client using video (to save bandwidth)
+        	video: {
+				mandatory: {},
+				optional: []
+        		}
     	}; // mediaConfig defines media type
 
     // create an angular service using factory
@@ -126,7 +129,7 @@
 
 	app.controller('LocalStreamController',['camera', '$scope', '$window', function(camera, $scope, $window){
 		var localStream = this;
-		localStream.name = 'Local';
+		localStream.name = 'Guest';
 		localStream.link = '';
 		localStream.cameraIsOn = false;
 
