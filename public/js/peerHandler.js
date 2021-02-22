@@ -5,9 +5,9 @@ var PeerManager = (function () {
         iceServers: [
           {urls:'stun:stun.l.google.com:19302'},
           {
-            urls: 'turn:34.94.159.96:3478',
-            username: 'tourmato',
-            credential: '1314520'
+            urls: 'turn:your_turn_server_ip',
+            username: 'your_turn_usrname',
+            credential: 'your_turn_pwd'
           }
         ]
       },
