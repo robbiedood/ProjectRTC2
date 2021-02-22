@@ -29,7 +29,7 @@ You can test it in the (Chrome or Firefox) browser at localhost:3000
 
 ## Connect with Tourmato Team
 
-- [Luke Lu](https:/www.linkedin.com/in/lukelu520)
-- [Lynna Lin](https:/www.linkedin.com/lynnajinglin/)
-- [Sandy Lu](https:/www.linkedin.com/in/sandylu1108)
+- [Luke Lu](https://www.linkedin.com/in/lukelu520)
+- [Lynna Lin](https://www.linkedin.com/lynnajinglin/)
+- [Sandy Lu](https://www.linkedin.com/in/sandylu1108)
 
